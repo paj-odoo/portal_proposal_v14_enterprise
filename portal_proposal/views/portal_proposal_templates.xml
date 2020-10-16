@@ -1,0 +1,167 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+	<template id="proposal_portal_template" name="Proposal Portal Template" inherit_id="portal.portal_sidebar" primary="True">
+        <xpath expr="//div[hasclass('o_portal_sidebar')]" position="inside">
+            <t t-set="o_portal_fullwidth_alert">
+                <t t-call="portal.portal_back_in_edit_mode"/>
+            </t>
+            <div class="row mt16 o_portal_sale_sidebar">
+            <!-- Sidebar -->
+	            <t t-call="portal.portal_record_sidebar">
+	                <t t-set="classes" t-value="'col-lg-auto d-print-none'"/>
+
+	                <t t-set="title">
+	                    <h2 class="mb-0"><b t-field="proposal.amount_total_proposed" data-id="amount_total_proposed"/> </h2>
+	                </t>
+	                <t t-set="title">
+	                    <h2 class="mb-0"><b t-field="proposal.amount_total_accepted" data-id="amount_total_accepted"/> </h2>
+	                </t>
+	                <t t-set="entries">
+	                	<ul class="list-group list-group-flush flex-wrap flex-row flex-lg-column">
+	                		<li class="list-group-item flex-grow-1">
+	                			<div class="o_download_pdf btn-toolbar flex-sm-nowrap">
+                                    <div class="btn-group flex-grow-1 mr-1 mb-1">
+                                        <a class="btn btn-secondary btn-block o_download_btn" t-att-href="proposal.get_portal_url(report_type='pdf', download=True)" title="Download"><i class="fa fa-download"/> Download</a>
+                                    </div>
+                                    <div class="btn-group flex-grow-1 mb-1">
+                                        <a class="btn btn-secondary btn-block o_print_btn o_portal_invoice_print" t-att-href="proposal.get_portal_url(report_type='pdf')" id="print_invoice_report" title="Print" target="_blank"><i class="fa fa-print"/> Print</a>
+                                    </div>
+                                </div>
+	                		</li>
+	                		<li t-if="proposal.user_id" class="list-group-item flex-grow-1">
+                                <div class="small mb-1"><strong class="text-muted">Salesperson</strong></div>
+                                <div class="row flex-nowrap">
+                                    <div class="col flex-grow-0 pr-2">
+                                        <img class="rounded-circle mr4 float-left o_portal_contact_img" t-if="proposal.user_id.image_1024" t-att-src="image_data_uri(proposal.user_id.image_1024)" alt="Contact"/>
+                                        <img class="rounded-circle mr4 float-left o_portal_contact_img" t-if="not proposal.user_id.image_1024" src="/web/static/src/img/placeholder.png" alt="Contact"/>
+                                    </div>
+                                    <div class="col pl-0" style="min-width: 150px">
+                                        <span t-field="proposal.user_id" t-options='{"widget": "contact", "fields": ["name", "phone"], "no_marker": True}'/>
+                                        <a href="#discussion" class="small"><i class="fa fa-comment"></i> Send message</a>
+                                    </div>
+                                </div>
+                            </li>
+	                	</ul>
+	                </t>
+	            </t>
+	            <div id="quote_content" class="col-12 col-lg justify-content-end">
+		        	<div t-attf-class="card #{'pb-5' if report_type == 'html' else ''}" id="portal_sale_content">
+		        		<div t-attf-class="card #{'pb-5' if report_type == 'html' else ''}" id="proposal_portal_content">
+	                        <div t-call="portal_proposal.proposal_portal_content"/>
+	                    </div>
+                    </div>
+                    <!-- bottom actions -->
+	                <div t-if="proposal.has_to_be_confirmed()" class="row justify-content-center text-center d-print-none pt-1 pb-4">
+	                    <t t-if="proposal.has_to_be_confirmed()">
+	                        <div class="col-sm-auto mt8">
+	                            <a role="button" class="btn btn-primary" data-toggle="modal" t-att-href="proposal.get_portal_url(suffix='/accept')"><i class="fa fa-check"/><t t-if="proposal.has_to_be_confirmed()">Accept</t>
+	                        	</a>
+	                        </div>
+	                        <div class="col-sm-auto mt8">
+	                            <a role="button" class="btn btn-danger" data-toggle="modal" data-target="#modaldecline" href="#"> <i class="fa fa-times"/> Refuse</a>
+	                        </div>
+	                    </t>
+	                </div>
+	                
+	                <!-- chatter -->
+	                <div id="sale_order_communication" class="mt-4">
+	                    <h2>History</h2>
+	                    <t t-call="portal.message_thread">
+	                        <t t-set="object" t-value="proposal"/>
+	                    </t>
+	                </div>
+		        </div>
+	        </div>
+
+        </xpath>
+    </template>
+
+    <template id="proposal_portal_content" name="Proposal Portal Content">
+        <!-- Intro -->
+        <div id="introduction" t-attf-class="pb-2 pt-3 #{'card-header bg-white' if report_type == 'html' else ''}">
+          <h2 class="my-0">
+                PROPOSAL
+                <em t-esc="proposal.name"/>
+            </h2>
+        </div>
+        <div t-attf-class="#{'card-body' if report_type == 'html' else ''}">
+            <div id="informations">
+            	<div class="row">
+                    <div class="col-lg-6">
+                        <strong class="d-block mb-1">Customer:</strong>
+                        <address t-field="proposal.partner_id" t-options='{"widget": "contact", "fields": ["address", "name"], "no_marker": True}'/>
+                    </div>
+                </div>
+            </div>
+            <section id="details" style="page-break-inside: auto;" class="mt32">
+            	<table t-att-data-order-id="proposal.id" t-att-data-token="proposal.access_token" class="table table-sm" id="proposal_table">
+                    <thead class="bg-100">
+                        <tr>
+                            <th class="text-left">Products</th>
+                            <th class="text-right">Proposed Quantity</th>
+                            <th t-attf-class="text-right {{ 'd-none d-sm-table-cell' if report_type == 'html' else '' }}">Proposed Price</th>
+                            <th class="text-right">Accepted Quantity</th>
+                            <th t-attf-class="text-right {{ 'd-none d-sm-table-cell' if report_type == 'html' else '' }}">Accepted Price</th>
+                        </tr>
+                    </thead>
+                    <tbody class="sale_tbody">
+                    	<t t-foreach="proposal.proposal_line" t-as="line">
+                    		<tr>
+                    			<td>
+                    				<div>
+	                    				<img t-if="line.product_id.image_1024" class="rounded-circle mt-1 o_portal_contact_img" t-att-src="image_data_uri(line.product_id.image_1024)" alt="Product"/>
+	                    			</div>
+                    				<span t-field="line.product_id.name"/>
+                    			</td>
+                    			<td class="text-right">
+                    				<div id="quote_qty">
+	                    				<span t-field="line.qty_proposed"/>
+	                    			</div>
+                    			</td>
+                    			<td class="text-right">
+                                    <span data-id="amount_total_proposed" t-field="line.price_proposed" t-options='{"widget": "monetary", "display_currency": line.proposal_id.pricelist_id.currency_id}'/>
+                    			</td>
+                    			<td class="text-right">
+                    				<div id="quote_qty">
+                    					<input type="number" name="qty_to_add" class="o_input o_product_qty form-control text-right" t-att-min="1" 
+                    					t-att-step="any" t-att-value="line.qty_accepted" min="1"/>
+                    				</div>
+                    			</td>
+                    			<td class="text-right">
+                    				<input type="text" t-att-value="line.price_proposed"/>
+                    			</td>
+                    		</tr>
+                    	</t>
+                    </tbody>
+                </table>
+                <div id="total" class="row" name="total" style="page-break-inside: avoid;">
+                    <div t-attf-class="#{'col-4' if report_type != 'html' else 'col-sm-7 col-md-5'} ml-auto">
+                        <t t-call="portal_proposal.proposal_portal_content_totals_table"/>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </template>
+
+    <template id="proposal_portal_content_totals_table">
+        <table class="table table-sm">
+            <tr class="border-black">
+                <td><strong>Total Amount Accepted</strong></td>
+                <td class="text-right">
+                    <span
+                        data-id="total_untaxed"
+                        t-field="proposal.amount_total_accepted"
+                        t-options='{"widget": "monetary","display_currency": proposal.pricelist_id.currency_id}'
+                    />
+                </td>
+            </tr>
+            <tr class="border-black">
+                <td><strong>Total Amount Proposed</strong></td>
+                <td class="text-right">
+                    <span data-id="amount_total_proposed" t-field="proposal.amount_total_proposed" t-options='{"widget": "monetary", "display_currency": proposal.pricelist_id.currency_id}'/>
+                </td>
+            </tr>
+        </table>
+    </template>
+</odoo>

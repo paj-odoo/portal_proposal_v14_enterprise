@@ -1,3 +1,3 @@
 id,name,model_id/id,group_id/id,perm_read,perm_write,perm_create,perm_unlink
-access_proposal,access_proposal,model_proposal,,1,1,1,0
+access_proposal_proposal,access_proposal_proposal,model_proposal_proposal,,1,1,1,0
 access_proposal_line,access_proposal_line,model_proposal_line,,1,1,1,0
