@@ -57,6 +57,7 @@
 								<field name="proposal_line" widget="section_and_note_one2many" mode="tree" attrs="{'readonly': [('state', 'in', ('confirm','cancel'))]}">
 									<tree editable="bottom">
 										<field name="product_id"/>
+										<field name="description"/>
 										<field name="product_uom"/>
 										<field name="qty_proposed"/>
 										<field name="qty_accepted"/>
@@ -66,6 +67,19 @@
 								</field>
 							</page>
 						</notebook>
+						<group col="6" class="mt-2 mt-md-0">
+                            <group class="oe_subtotal_footer oe_right" colspan="2" name="proposal_total">
+                                <div class="oe_subtotal_footer_separator oe_inline o_td_label">
+                                    <label for="amount_total_proposed"/>
+                                </div>
+                                <field name="amount_total_proposed" nolabel="1" class="oe_subtotal_footer_separator" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                                <div class="oe_subtotal_footer_separator oe_inline o_td_label">
+                                    <label for="amount_total_accepted"/>
+                                </div>
+                                <field name="amount_total_accepted" nolabel="1" class="oe_subtotal_footer_separator" widget="monetary" options="{'currency_field': 'currency_id'}"/>
+                            </group>
+                            <div class="oe_clear"/>
+                        </group>
 					</sheet>
 					<div class="oe_chatter">
 	                    <field name="message_follower_ids"/>

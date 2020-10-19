@@ -1,12 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
+    <template id="assets_frontend" inherit_id="web.assets_frontend" name="Portal Proposal frontend assets">
+        <xpath expr="." position="inside">
+            <script type="text/javascript" src="/portal_proposal/static/src/js/proposal_line_update.js"></script>
+        </xpath>
+    </template>
+
 	<template id="proposal_portal_template" name="Proposal Portal Template" inherit_id="portal.portal_sidebar" primary="True">
         <xpath expr="//div[hasclass('o_portal_sidebar')]" position="inside">
             <t t-set="o_portal_fullwidth_alert">
                 <t t-call="portal.portal_back_in_edit_mode"/>
             </t>
-            <div class="row mt16 o_portal_sale_sidebar">
+            <div class="row mt16 o_portal_proposal_sidebar">
             <!-- Sidebar -->
 	            <t t-call="portal.portal_record_sidebar">
 	                <t t-set="classes" t-value="'col-lg-auto d-print-none'"/>
@@ -45,7 +51,7 @@
 	                	</ul>
 	                </t>
 	            </t>
-	            <div id="quote_content" class="col-12 col-lg justify-content-end">
+	            <div id="proposal_content" class="col-12 col-lg justify-content-end">
 		        	<div t-attf-class="card #{'pb-5' if report_type == 'html' else ''}" id="portal_sale_content">
 		        		<div t-attf-class="card #{'pb-5' if report_type == 'html' else ''}" id="proposal_portal_content">
 	                        <div t-call="portal_proposal.proposal_portal_content"/>
@@ -95,10 +101,11 @@
                 </div>
             </div>
             <section id="details" style="page-break-inside: auto;" class="mt32">
-            	<table t-att-data-order-id="proposal.id" t-att-data-token="proposal.access_token" class="table table-sm" id="proposal_table">
+            	<table t-att-data-proposal-id="proposal.id" t-att-data-token="proposal.access_token" class="table table-sm" id="proposal_table">
                     <thead class="bg-100">
                         <tr>
-                            <th class="text-left">Products</th>
+                            <th class="td-img">Product</th>
+                            <th></th>
                             <th class="text-right">Proposed Quantity</th>
                             <th t-attf-class="text-right {{ 'd-none d-sm-table-cell' if report_type == 'html' else '' }}">Proposed Price</th>
                             <th class="text-right">Accepted Quantity</th>
@@ -108,12 +115,15 @@
                     <tbody class="sale_tbody">
                     	<t t-foreach="proposal.proposal_line" t-as="line">
                     		<tr>
-                    			<td>
-                    				<div>
-	                    				<img t-if="line.product_id.image_1024" class="rounded-circle mt-1 o_portal_contact_img" t-att-src="image_data_uri(line.product_id.image_1024)" alt="Product"/>
-	                    			</div>
-                    				<span t-field="line.product_id.name"/>
-                    			</td>
+                                <td class='td-img'>
+                                    <a t-att-href="line.product_id.website_url">
+                                        <img t-attf-src="/web/image/product.product/#{line.product_id.id}/image_128" class="img img-fluid" style="margin:auto;" alt="Product image"/>
+                                    </a>
+                                </td>
+                                <td class='text-left'>
+                                    <strong><a t-att-href="line.product_id.website_url"><t t-esc="line.product_id.display_name" /></a></strong>
+                                    <small class='d-none d-md-block'><p t-field="line.product_id.description_sale" class="text-muted"/></small>
+                                </td>
                     			<td class="text-right">
                     				<div id="quote_qty">
 	                    				<span t-field="line.qty_proposed"/>
@@ -123,13 +133,26 @@
                                     <span data-id="amount_total_proposed" t-field="line.price_proposed" t-options='{"widget": "monetary", "display_currency": line.proposal_id.pricelist_id.currency_id}'/>
                     			</td>
                     			<td class="text-right">
-                    				<div id="quote_qty">
-                    					<input type="number" name="qty_to_add" class="o_input o_product_qty form-control text-right" t-att-min="1" 
-                    					t-att-step="any" t-att-value="line.qty_accepted" min="1"/>
-                    				</div>
+                                    <div class="input-group js_quantity_container pull-right">
+                                        <div class="input-group-prepend d-print-none">
+                                            <span class="input-group-text d-none d-md-inline-block">
+                                                <a t-att-data-line-id="line.id" t-att-data-remove="True" href="#" class="js_update_line_json" aria-label="Remove one" title="Remove one">
+                                                    <span class="fa fa-minus"/>
+                                                </a>
+                                            </span>
+                                        </div>
+                                        <input type="text" class="js_quantity form-control" t-att-data-line-id="line.id" t-att-value="line.qty_accepted"/>
+                                        <div class="input-group-append d-print-none">
+                                            <span class="input-group-text d-none d-md-inline-block">
+                                                <a t-att-data-line-id="line.id" href="#" class="js_update_line_json" aria-label="Add one" title="Add one">
+                                                    <span class="fa fa-plus"/>
+                                                </a>
+                                            </span>
+                                        </div>
+                                    </div>
                     			</td>
                     			<td class="text-right">
-                    				<input type="text" t-att-value="line.price_proposed"/>
+                    				<input class="js_price form-control" t-att-data-line-id="line.id" type="text" t-att-value="line.price_accepted"/>
                     			</td>
                     		</tr>
                     	</t>
@@ -145,12 +168,12 @@
     </template>
 
     <template id="proposal_portal_content_totals_table">
-        <table class="table table-sm">
+        <table class="proposal_totals_table table table-sm">
             <tr class="border-black">
                 <td><strong>Total Amount Accepted</strong></td>
                 <td class="text-right">
                     <span
-                        data-id="total_untaxed"
+                        data-id="total_amount_accepted"
                         t-field="proposal.amount_total_accepted"
                         t-options='{"widget": "monetary","display_currency": proposal.pricelist_id.currency_id}'
                     />

@@ -9,6 +9,18 @@ class Proposal(models.Model):
     _inherit = ['portal.mixin', 'mail.thread', 'mail.activity.mixin']
     _description = "Manage a proposal of a list of product to a customer"
 
+    @api.depends('proposal_line.price_proposed', 'proposal_line.price_accepted')
+    def _amount_all(self):
+        for proposal in self:
+            amount_total_proposed = amount_total_accepted = 0.0
+            for line in proposal.proposal_line:
+                amount_total_proposed += line.price_proposed
+                amount_total_accepted += line.price_accepted
+            proposal.update({
+                'amount_total_proposed': amount_total_proposed,
+                'amount_total_accepted': amount_total_accepted,
+            })
+
     name = fields.Char(string = "Name")
     user_id = fields.Many2one("res.users", string = "Salesman", required=True,)
     partner_id = fields.Many2one("res.partner", string = "Customer", required=True,)
@@ -21,13 +33,13 @@ class Proposal(models.Model):
     pricelist_id = fields.Many2one(
         'product.pricelist', string='Pricelist',
         required=True, states={'draft': [('readonly', False)], 'sent': [('readonly', False)]}, tracking=1)
-    date_proposal = fields.Date(string = "Proposal Date")
+    date_proposal = fields.Date(string = "Proposal Date", default=fields.Date.context_today)
     proposal_line = fields.One2many(
         'proposal.line', 'proposal_id', string='Order Lines', states={'cancel': [('readonly', True)], 
         'confirm': [('readonly', True)]}, copy=True, auto_join=True)
 
-    amount_total_proposed = fields.Float('Proposed Total Amount', required=True, default=0.0)
-    amount_total_accepted = fields.Float('Accepted Total Amount', required=True, default=0.0)
+    amount_total_proposed = fields.Float('Proposed Total Amount', store=True, readonly=True, compute='_amount_all', tracking=5)
+    amount_total_accepted = fields.Float('Accepted Total Amount', rstore=True, readonly=True, compute='_amount_all', tracking=5)
 
 
     @api.onchange('partner_id')
@@ -54,6 +66,10 @@ class Proposal(models.Model):
         super(Proposal, self)._compute_access_url()
         for proposal in self:
             proposal.access_url = '/my/proposal/%s' % (proposal.id)
+
+    def _get_report_base_filename(self):
+        self.ensure_one()
+        return 'Proposal %s' % (self.name)
 
     def unlink(self):
         for proposal in self:
@@ -87,8 +103,33 @@ class Proposal(models.Model):
 
     def action_confirm(self):
         self.ensure_one()
+        sale_order = self.env['sale.order'].create({
+            'partner_id': self.partner_id.id,
+            'company_id': self.env.company.id,
+            'pricelist_id': self.pricelist_id.id
+        })
+        sale_order.onchange_partner_id()
+        sale_order.onchange_partner_shipping_id()
+        sale_order.write({'user_id': self.user_id.id})
+        sale_order.onchange_user_id()
+
+        # create the sale lines, the map (optional), and assign existing timesheet to sale lines
+        self.create_sale_order_lines(sale_order)
+
+        # confirm SO
+        sale_order.action_confirm()
         self.write({'state':'confirm'})
+        self.message_post(body=_('Sale Order %s created for this Proposal.', sale_order.name))
         
+    def create_sale_order_lines(self, sale_order):
+        for line in self.proposal_line:
+            sale_order_line = self.env['sale.order.line'].create({
+                'order_id': sale_order.id,
+                'product_id': line.product_id.id,
+                'price_unit': line.price_accepted,
+                'product_uom_qty': line.qty_accepted,
+            })
+
 
 class ProposalLines(models.Model):
     _name = "proposal.line"
@@ -96,6 +137,7 @@ class ProposalLines(models.Model):
 
     proposal_id = fields.Many2one("proposal.proposal", string='Proposal Reference', required=True, ondelete='cascade', index=True, copy=False)
     product_id = fields.Many2one("product.product", string = "Product")
+    description = fields.Text(string = "Description")
     product_uom = fields.Many2one('uom.uom', string='Unit of Measure')
     qty_proposed = fields.Float(string='Quantity Proposed', required=True, default=1.0)
     qty_accepted = fields.Float(string='Quantity Accepted', required=True, default=1.0)
@@ -103,76 +145,45 @@ class ProposalLines(models.Model):
     price_accepted = fields.Float('Price Accespted', required=True, default=0.0)
 
 
-    @api.onchange('product_id')
+    _sql_constraints = [
+        (
+            'check_qty_proposed_not_negative',
+            'CHECK(qty_proposed >= 0.0)',
+            "The Qty Proposed cannot be negative.",
+        ),
+        (
+            'check_qty_accepted_not_negative',
+            'CHECK(qty_accepted >= 0.0)',
+            "The Qty Accepted cannot be negative.",
+        ),
+    ]
+
+    @api.onchange('product_id','qty_proposed')
     def product_id_change(self):
         if not self.product_id:
             return
         vals = {}
         if not self.product_uom or (self.product_id.uom_id.id != self.product_uom.id):
-            vals['product_uom'] = self.product_id.uom_id
-            vals['qty_proposed'] = self.qty_proposed or 1.0
+            vals.update({
+                'product_uom': self.product_id.uom_id,
+                'qty_proposed': self.qty_proposed or 1.0
+            })
 
         product = self.product_id.with_context(
             lang=get_lang(self.env, self.proposal_id.partner_id.lang).code,
             partner=self.proposal_id.partner_id,
-            quantity=vals.get('product_uom_qty') or self.qty_proposed,
+            quantity=self.qty_proposed,
             date=self.proposal_id.date_proposal,
             pricelist=self.proposal_id.pricelist_id.id,
             uom=self.product_uom.id
         )
-
-        if self.proposal_id.pricelist_id and self.proposal_id.partner_id:
-            vals['price_proposed'] = self.env['account.tax']._fix_tax_included_price_company(self._get_display_price(product), product.taxes_id, product.taxes_id, False)
+        if product:
+            vals.update({
+                'price_proposed': self.qty_proposed * product.price,
+                'qty_accepted': self.qty_proposed,
+                'price_accepted': self.qty_proposed * product.price,
+                'description': product.get_product_multiline_description_sale(),
+            })
         self.update(vals)
 
-    def _get_display_price(self, product):
-        if self.proposal_id.pricelist_id.discount_policy == 'with_discount':
-            return product.with_context(pricelist=self.proposal_id.pricelist_id.id).price
-        product_context = dict(self.env.context, partner_id=self.proposal_id.partner_id.id, date=self.proposal_id.date_proposal, uom=self.product_uom.id)
 
-        final_price, rule_id = self.proposal_id.pricelist_id.with_context(product_context).get_product_price_rule(product or self.product_id, self.product_uom_qty or 1.0, self.proposal_id.partner_id)
-        base_price, currency = self.with_context(product_context)._get_real_price_currency(product, rule_id, self.product_uom_qty, self.product_uom, self.proposal_id.pricelist_id.id)
-        if currency != self.proposal_id.pricelist_id.currency_id:
-            base_price = currency._convert(
-                base_price, self.proposal_id.pricelist_id.currency_id,
-                self.env.company, self.order_id.date_proposal or fields.Date.today())
-        return max(base_price, final_price)
-
-    def _get_real_price_currency(self, product, rule_id, qty, uom, pricelist_id):
-        PricelistItem = self.env['product.pricelist.item']
-        field_name = 'lst_price'
-        currency_id = None
-        product_currency = product.currency_id
-        if rule_id:
-            pricelist_item = PricelistItem.browse(rule_id)
-            if pricelist_item.pricelist_id.discount_policy == 'without_discount':
-                while pricelist_item.base == 'pricelist' and pricelist_item.base_pricelist_id and pricelist_item.base_pricelist_id.discount_policy == 'without_discount':
-                    price, rule_id = pricelist_item.base_pricelist_id.with_context(uom=uom.id).get_product_price_rule(product, qty, self.order_id.partner_id)
-                    pricelist_item = PricelistItem.browse(rule_id)
-
-            if pricelist_item.base == 'standard_price':
-                field_name = 'standard_price'
-                product_currency = product.cost_currency_id
-            elif pricelist_item.base == 'pricelist' and pricelist_item.base_pricelist_id:
-                field_name = 'price'
-                product = product.with_context(pricelist=pricelist_item.base_pricelist_id.id)
-                product_currency = pricelist_item.base_pricelist_id.currency_id
-            currency_id = pricelist_item.pricelist_id.currency_id
-
-        if not currency_id:
-            currency_id = product_currency
-            cur_factor = 1.0
-        else:
-            if currency_id.id == product_currency.id:
-                cur_factor = 1.0
-            else:
-                cur_factor = currency_id._get_conversion_rate(product_currency, currency_id, self.company_id or self.env.company, self.order_id.date_order or fields.Date.today())
-
-        product_uom = self.env.context.get('uom') or product.uom_id.id
-        if uom and uom.id != product_uom:
-            # the unit price is in a different uom
-            uom_factor = uom._compute_price(1.0, product.uom_id)
-        else:
-            uom_factor = 1.0
-
-        return product[field_name] * uom_factor * cur_factor, currency_id

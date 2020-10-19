@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <template id="report_proposal_document">
+        <t t-call="web.external_layout">
+            <t t-set="doc" t-value="doc.with_context(lang=doc.partner_id.lang)" />
+            <t t-set="address">
+                <div t-field="doc.partner_id"
+                    t-options='{"widget": "contact", "fields": ["address", "name"], "no_marker": True}' />
+                <p t-if="doc.partner_id.vat"><t t-esc="doc.company_id.country_id.vat_label or 'Tax ID'"/>: <span t-field="doc.partner_id.vat"/></p>
+            </t>
+            <div class="page">
+                <div class="oe_structure"/>
+
+                <h2 class="mt16">
+                    <span>Proposal # </span>
+                    <span t-field="doc.name"/>
+                </h2>
+                <div class="row mt32 mb32" id="informations">
+                    <div t-if="doc.date_proposal" class="col-auto mw-100 mb-2">
+                        <strong>Proposal Date:</strong>
+                        <p class="m-0" t-field="doc.date_proposal"/>
+                    </div>
+                    <div t-if="doc.user_id.name" class="col-auto mw-100 mb-2">
+                        <strong>Salesperson:</strong>
+                        <p class="m-0" t-field="doc.user_id"/>
+                    </div>
+                </div>
+                <table class="table table-sm o_main_table">
+                    <!-- In case we want to repeat the header, remove "display: table-row-group" -->
+                    <thead style="display: table-row-group">
+                        <tr>
+                            <th class='td-img'>Products</th>
+                            <th></th>
+                            <th class="text-right">Proposed Quantity</th>
+                            <th class="text-right">Proposed Price</th>
+                            <th class="text-right">Accepted Quantity</th>
+                            <th class="text-right">Accepted Price</th>
+                        </tr>
+                    </thead>
+                    <tbody class="proposal_tbody">
+                        <t t-set="amount_total_proposed" t-value="0"/>
+                        <t t-set="amount_total_accepted" t-value="0"/>
+
+                        <t t-foreach="doc.proposal_line" t-as="line">
+                            <tr>
+                                <td class='td-img'>
+                                    <img t-attf-src="/web/image/product.product/#{line.product_id.id}/image_128" class="img img-fluid" style="margin:auto;" alt="Product image"/>
+                                </td>
+                                <td class='text-left'>
+                                    <strong><t t-esc="line.product_id.display_name" /></strong>
+                                    <small class='d-none d-md-block'>
+                                        <p t-field="line.product_id.description_sale" class="text-muted"/>
+                                    </small>
+                                </td>
+                                <td class="text-right">
+                                    <div id="quote_qty">
+                                        <span t-field="line.qty_proposed"/>
+                                    </div>
+                                </td>
+                                <td class="text-right">
+                                    <span data-id="amount_total_proposed" t-field="line.price_proposed" t-options='{"widget": "monetary", "display_currency": line.proposal_id.pricelist_id.currency_id}'/>
+                                </td>
+                                <td class="text-right">
+                                    <div id="quote_qty">
+                                        <span t-field="line.qty_accepted"/>
+                                    </div>
+                                </td>
+                                <td class="text-right">
+                                    <span t-field="line.price_accepted" t-options='{"widget": "monetary", "display_currency": line.proposal_id.pricelist_id.currency_id}'/>
+                                </td>
+                            </tr>
+                        </t>
+                    </tbody>
+                </table>
+                <div class="clearfix" name="proposal_total_summary">
+                    <div id="total" class="row" name="total">
+                        <div t-attf-class="#{'col-4' if report_type != 'html' else 'col-sm-7 col-md-5'} ml-auto">
+                            <table class="table table-sm">
+                                <tr class="border-black o_subtotal" style="">
+                                    <td><strong>Amount Total Proposed</strong></td>
+                                    <td class="text-right">
+                                        <span t-field="doc.amount_total_proposed"/>
+                                    </td>
+                                </tr>
+                                <tr class="border-black o_total">
+                                    <td><strong>Amount Total Accepted</strong></td>
+                                    <td class="text-right">
+                                        <span t-field="doc.amount_total_accepted"/>
+                                    </td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <template id="report_proposal">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="doc">
+                <t t-call="portal_proposal.report_proposal_document" t-lang="doc.partner_id.lang"/>
+            </t>
+        </t>
+    </template>
+
+</odoo>

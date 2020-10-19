@@ -13,5 +13,7 @@
         'data/mail_data.xml',
         'views/proposal_views.xml',
         'views/portal_proposal_templates.xml',
+        'report/proposal_report_templates.xml',
+        'report/proposal_report.xml'
     ],
 }
