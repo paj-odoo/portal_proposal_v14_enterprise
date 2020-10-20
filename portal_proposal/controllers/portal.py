@@ -13,7 +13,8 @@ class CustomerPortal(CustomerPortal):
 
     def _get_portal_proposal_details(self, proposal_sudo, proposal_line=False):
         currency = proposal_sudo.pricelist_id.currency_id
-        format_price = partial(formatLang, request.env, digits=currency.decimal_places)
+        format_price = partial(formatLang, request.env,
+                               digits=currency.decimal_places)
         results = {
             'amount_total_proposed': format_price(proposal_sudo.amount_total_proposed),
             'amount_total_accepted': format_price(proposal_sudo.amount_total_accepted)
@@ -24,7 +25,8 @@ class CustomerPortal(CustomerPortal):
                 'proposal_line_price_accepted': str(proposal_line.price_accepted),
             })
             try:
-                results['proposal_totals_table'] = request.env['ir.ui.view']._render_template('portal_proposal.proposal_portal_content_totals_table', {'proposal': proposal_sudo})
+                results['proposal_totals_table'] = request.env['ir.ui.view']._render_template(
+                    'portal_proposal.proposal_portal_content_totals_table', {'proposal': proposal_sudo})
             except ValueError:
                 pass
 
@@ -33,7 +35,8 @@ class CustomerPortal(CustomerPortal):
     @http.route(['/my/proposal/<int:proposal_id>'], type='http', auth="public", website=True)
     def portal_proposal_page(self, proposal_id, report_type=None, access_token=None, message=False, download=False, **kw):
         try:
-            proposal_sudo = self._document_check_access('proposal.proposal', proposal_id, access_token=access_token)
+            proposal_sudo = self._document_check_access(
+                'proposal.proposal', proposal_id, access_token=access_token)
         except (AccessError, MissingError):
             return request.redirect('/my')
 
@@ -42,12 +45,14 @@ class CustomerPortal(CustomerPortal):
 
         if proposal_sudo:
             now = fields.Date.today().isoformat()
-            session_obj_date = request.session.get('view_proposal_%s' % proposal_sudo.id)
+            session_obj_date = request.session.get(
+                'view_proposal_%s' % proposal_sudo.id)
             if session_obj_date != now and request.env.user.share and access_token:
                 request.session['view_proposal_%s' % proposal_sudo.id] = now
-                body = _('Proposal viewed by customer %s', proposal_sudo.partner_id.name)
+                body = _('Proposal viewed by customer %s',
+                         proposal_sudo.partner_id.name)
                 _message_post_helper(
-                    "proposal",
+                    "proposal.proposal",
                     proposal_sudo.id,
                     body,
                     token=proposal_sudo.access_token,
@@ -68,23 +73,83 @@ class CustomerPortal(CustomerPortal):
         return request.render('portal_proposal.proposal_portal_template', values)
 
     @http.route(['/my/proposal/<int:proposal_id>/update_line_dict'], type='json', auth="public", website=True)
-    def update_line_dict(self, line_id, remove=False, unlink=False, proposal_id=None, access_token=None,\
-     input_quantity=False, price_accepted=False, **kwargs):
+    def update_line_dict(self, line_id, remove=False, add=False, proposal_id=None, access_token=None,
+                         input_quantity=False, price_accepted=False, **kwargs):
         try:
-            proposal_sudo = self._document_check_access('proposal.proposal', proposal_id, access_token=access_token)
+            proposal_sudo = self._document_check_access(
+                'proposal.proposal', proposal_id, access_token=access_token)
         except (AccessError, MissingError):
             return request.redirect('/my')
 
+        write_vals = {}
         if proposal_sudo.state not in ('draft', 'sent'):
             return False
-        proposal_line = request.env['proposal.line'].sudo().browse(int(line_id))
+        proposal_line = request.env['proposal.line'].sudo().browse(
+            int(line_id))
         if proposal_line.proposal_id != proposal_sudo:
             return False
 
-        if not input_quantity:
-            input_quantity = proposal_line.qty_proposed
-        if not price_accepted:
-            price_accepted = proposal_line.price_accepted
-        proposal_line.write({'qty_accepted': input_quantity, 'price_accepted':price_accepted})
-        results = self._get_portal_proposal_details(proposal_sudo, proposal_line)
+        if input_quantity:
+            input_quantity = input_quantity
+            write_vals.update({'qty_accepted': input_quantity})
+        else:
+            quantity = proposal_line.qty_accepted
+            if add:
+                quantity += 1
+            elif remove:
+                quantity -= 1
+            write_vals.update({'qty_accepted': quantity})
+
+        if price_accepted:
+            price_accepted = price_accepted
+            write_vals.update({'price_accepted': price_accepted})
+
+        proposal_line.write(write_vals)
+        results = self._get_portal_proposal_details(
+            proposal_sudo, proposal_line)
         return results
+
+    @http.route(['/my/proposal/<int:proposal_id>/accept'], type='http', auth="public", website=True)
+    def proposal_accepted(self, proposal_id, access_token=None, message=False, **kw):
+        access_token = access_token or request.httprequest.args.get('access_token')
+        try:
+            proposal_sudo = self._document_check_access('proposal.proposal', proposal_id, access_token=access_token)
+        except (AccessError, MissingError):
+            return {'error': _('Invalid order.')}
+
+        if not proposal_sudo.has_to_be_confirmed():
+            return {'error': _('The proposal is already been confirmed.')}
+
+        proposal_sudo.write({
+            'is_accepted': True,
+        })
+        request.env.cr.commit()
+
+        _message_post_helper(
+            'proposal.proposal', proposal_sudo.id, _('Proposal is Accepted by'),
+            **({'token': access_token} if access_token else {}))
+
+        query_string = '&message=proposal_accepted'
+        return request.redirect(proposal_sudo.get_portal_url(query_string=query_string))
+
+    @http.route(['/my/proposal/<int:proposal_id>/accept'], type='http', auth="public", website=True)
+    def proposal_accepted(self, proposal_id, access_token=None, message=False, **kw):
+        access_token = access_token or request.httprequest.args.get('access_token')
+        try:
+            proposal_sudo = self._document_check_access('proposal.proposal', proposal_id, access_token=access_token)
+        except (AccessError, MissingError):
+            return {'error': _('Invalid order.')}
+
+        if not proposal_sudo.has_to_be_confirmed():
+            return {'error': _('The proposal is already been confirmed.')}
+
+        proposal_sudo.write({
+            'state': 'accept',
+        })
+        request.env.cr.commit()
+
+        _message_post_helper(
+            'proposal.proposal', proposal_sudo.id, _('Proposal is Accepted.'),
+            **({'token': access_token} if access_token else {}))
+
+        return request.redirect(proposal_sudo.get_portal_url())

@@ -7,6 +7,7 @@ var publicWidget = require('web.public.widget');
         selector: '.o_portal_proposal_sidebar',
 
         events: {
+            'click a.js_update_line_json': '_onClick',
             'change .js_quantity': '_onChangeAcceptedQuantity',
             'change .js_price': '_onChangeAcceptedPrice',
         },
@@ -14,6 +15,20 @@ var publicWidget = require('web.public.widget');
             await this._super(...arguments);
             this.proposalDetail = this.$el.find('table#proposal_table').data();
             this.elems = this._getUpdatableElements();
+        },
+        _onClick(ev) {
+            ev.preventDefault();
+            let self = this,
+                $target = $(ev.currentTarget);
+            this._callUpdateLineRoute(self.proposalDetail.proposalId, {
+                'line_id': $target.data('lineId'),
+                'remove': $target.data('remove'),
+                'add': $target.data('add'),
+                'access_token': self.proposalDetail.token
+            }).then((data) => {
+                self._updateProposeLineValues($target.closest('tr'), data);
+                self._updateProposalValues(data);
+            });
         },
         _onChangeAcceptedQuantity(ev) {
             ev.preventDefault();
@@ -66,7 +81,7 @@ var publicWidget = require('web.public.widget');
             }
         },
         _updateProposalValues(data) {
-            let proposalAmountAccepted = data.amount_total_accepted,
+            let proposalAmountAccepted = data.amount_total_proposed,
                 totalProposalAmount = data.amount_total_accepted,
                 $proposal_totals_table = $(data.proposal_totals_table);
 

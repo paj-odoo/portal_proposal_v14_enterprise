@@ -13,7 +13,7 @@
         Dear ${object.partner_id.name or 'Customer'}<br/><br/>
         Your Proposal
             <strong>${object.name}</strong>
-            is ready for review.
+            is ready to be reviewed.
         <br/><br/>
         Please review it by following Link.
         <br/>
