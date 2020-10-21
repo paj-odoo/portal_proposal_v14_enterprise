@@ -40,6 +40,7 @@ class Proposal(models.Model):
         states={
             'draft': [('readonly', False)], 'sent': [('readonly', False)]
         }, tracking=1)
+    currency_id = fields.Many2one(related='pricelist_id.currency_id', string='Pricelist Currency')
     date_proposal = fields.Date(
         string="Proposal Date", default=fields.Date.context_today)
     proposal_line = fields.One2many(
@@ -51,7 +52,7 @@ class Proposal(models.Model):
     amount_total_proposed = fields.Float(
         'Proposed Total Amount', store=True, readonly=True, compute='_amount_all', tracking=5)
     amount_total_accepted = fields.Float(
-        'Accepted Total Amount', rstore=True, readonly=True, compute='_amount_all', tracking=5)
+        'Accepted Total Amount', store=True, readonly=True, compute='_amount_all', tracking=5)
 
     def _compute_access_url(self):
         super(Proposal, self)._compute_access_url()
@@ -87,8 +88,7 @@ class Proposal(models.Model):
                 pricelist=self.pricelist_id.id,
                 uom=line.product_uom.id
             )
-            price_unit = product.price
-            lines_to_update.append((1, line.id, {'price_proposed': line.qty_proposed * price_unit}))
+            lines_to_update.append((1, line.id, {'price_proposed': product.price, 'price_accepted': product.price}))
         self.update({'proposal_line': lines_to_update})
         self.message_notify(body=_(
             "Product prices have been recomputed according to pricelist <b>%s<b> ",
@@ -131,7 +131,7 @@ class Proposal(models.Model):
 
     def action_proposal_cancel(self):
         self.ensure_one()
-        self.write({'state':'cancel'})
+        return self.write({'state': 'cancel'})
 
     def action_proposal_send(self):
         self.ensure_one()
@@ -150,12 +150,9 @@ class Proposal(models.Model):
         sale_order = self.env['sale.order'].create({
             'partner_id': self.partner_id.id,
             'company_id': self.env.company.id,
-            'pricelist_id': self.pricelist_id.id
+            'pricelist_id': self.pricelist_id.id,
+            'user_id': self.user_id.id
         })
-        sale_order.onchange_partner_id()
-        sale_order.onchange_partner_shipping_id()
-        sale_order.write({'user_id': self.user_id.id})
-        sale_order.onchange_user_id()
 
         self.create_sale_order_lines(sale_order)
 
@@ -170,6 +167,7 @@ class Proposal(models.Model):
             sale_order_line = self.env['sale.order.line'].create({
                 'order_id': sale_order.id,
                 'product_id': line.product_id.id,
+                'product_uom': line.product_uom.id,
                 'price_unit': line.price_accepted,
                 'product_uom_qty': line.qty_accepted,
             })
@@ -226,9 +224,9 @@ class ProposalLines(models.Model):
         )
         if product:
             vals.update({
-                'price_proposed': self.qty_proposed * product.price,
+                'price_proposed': product.price,
                 'qty_accepted': self.qty_proposed,
-                'price_accepted': self.qty_proposed * product.price,
+                'price_accepted': product.price,
                 'description': product.get_product_multiline_description_sale(),
             })
         self.update(vals)

@@ -148,8 +148,32 @@ class CustomerPortal(CustomerPortal):
         })
         request.env.cr.commit()
 
+        body = _('Proposal is Accepted By %s', proposal_sudo.partner_id.name)
         _message_post_helper(
-            'proposal.proposal', proposal_sudo.id, _('Proposal is Accepted.'),
-            **({'token': access_token} if access_token else {}))
+            "proposal.proposal",
+            proposal_sudo.id,
+            body,
+            token=proposal_sudo.access_token,
+            message_type="notification",
+            subtype_xmlid="mail.mt_note",
+            partner_ids=proposal_sudo.user_id.sudo().partner_id.ids,
+        )
+        return request.redirect(proposal_sudo.get_portal_url())
+
+    @http.route(['/my/proposal/<int:proposal_id>/refuse'], type='http', auth="public", website=True)
+    def proposal_refuse(self, proposal_id, access_token=None, message=False, **kw):
+        access_token = access_token or request.httprequest.args.get('access_token')
+        try:
+            proposal_sudo = self._document_check_access('proposal.proposal', proposal_id, access_token=access_token)
+        except (AccessError, MissingError):
+            return {'error': _('Invalid order.')}
+
+        if not proposal_sudo.has_to_be_confirmed():
+            return {'error': _('The proposal is already been confirmed.')}
+
+        proposal_sudo.write({
+            'state': 'cancel',
+        })
+        request.env.cr.commit()
 
         return request.redirect(proposal_sudo.get_portal_url())

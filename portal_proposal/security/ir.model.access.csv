@@ -1,3 +1,7 @@
 id,name,model_id/id,group_id/id,perm_read,perm_write,perm_create,perm_unlink
-access_proposal_proposal,access_proposal_proposal,model_proposal_proposal,,1,1,1,0
-access_proposal_line,access_proposal_line,model_proposal_line,,1,1,1,0
+
+access_proposal_proposal_manager,proposal.proposal.manager,model_proposal_proposal,sales_team.group_sale_manager,1,1,1,1
+access_proposal_proposal_portal,proposal.proposal.portal,model_proposal_proposal,base.group_portal,1,0,0,0
+access_proposal_line_manager,proposal.line.manager,model_proposal_line,sales_team.group_sale_manager,1,1,1,1
+access_proposal_line_portal,proposal.line.portal,model_proposal_line,base.group_portal,1,0,0,0
+

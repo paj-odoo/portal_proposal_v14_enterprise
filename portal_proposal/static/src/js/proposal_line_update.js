@@ -81,8 +81,8 @@ var publicWidget = require('web.public.widget');
             }
         },
         _updateProposalValues(data) {
-            let proposalAmountAccepted = data.amount_total_proposed,
-                totalProposalAmount = data.amount_total_accepted,
+            let proposalAmountAccepted = data.amount_total_accepted ,
+                totalProposalAmount = data.amount_total_proposed,
                 $proposal_totals_table = $(data.proposal_totals_table);
 
             if (proposalAmountAccepted !== undefined) {

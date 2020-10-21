@@ -6,7 +6,7 @@
     'description': """Create Sale Order for the confirm Proposals.""",
     'category': 'Sales/Sales',
     'version': '1.0',
-    'depends': ['sale_management'],
+    'depends': ['sale_management','website_sale'],
     'data': [
         'security/ir.model.access.csv',
         'data/ir_sequence_data.xml',
