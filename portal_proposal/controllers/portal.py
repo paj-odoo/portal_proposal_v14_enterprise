@@ -84,8 +84,7 @@ class CustomerPortal(CustomerPortal):
         write_vals = {}
         if proposal_sudo.state not in ('draft', 'sent'):
             return False
-        proposal_line = request.env['proposal.line'].sudo().browse(
-            int(line_id))
+        proposal_line = request.env['proposal.line'].sudo().browse(int(line_id))
         if proposal_line.proposal_id != proposal_sudo:
             return False
 
@@ -101,12 +100,12 @@ class CustomerPortal(CustomerPortal):
             write_vals.update({'qty_accepted': quantity})
 
         if price_accepted:
-            price_accepted = price_accepted
+            # price_accepted = price_accepted
             write_vals.update({'price_accepted': price_accepted})
 
         proposal_line.write(write_vals)
-        results = self._get_portal_proposal_details(
-            proposal_sudo, proposal_line)
+        proposal_line._onchange_product_id()
+        results = self._get_portal_proposal_details(proposal_sudo, proposal_line)
         return results
 
     @http.route(['/my/proposal/<int:proposal_id>/accept'], type='http', auth="public", website=True)
@@ -115,30 +114,7 @@ class CustomerPortal(CustomerPortal):
         try:
             proposal_sudo = self._document_check_access('proposal.proposal', proposal_id, access_token=access_token)
         except (AccessError, MissingError):
-            return {'error': _('Invalid order.')}
-
-        if not proposal_sudo.has_to_be_confirmed():
-            return {'error': _('The proposal is already been confirmed.')}
-
-        proposal_sudo.write({
-            'is_accepted': True,
-        })
-        request.env.cr.commit()
-
-        _message_post_helper(
-            'proposal.proposal', proposal_sudo.id, _('Proposal is Accepted by'),
-            **({'token': access_token} if access_token else {}))
-
-        query_string = '&message=proposal_accepted'
-        return request.redirect(proposal_sudo.get_portal_url(query_string=query_string))
-
-    @http.route(['/my/proposal/<int:proposal_id>/accept'], type='http', auth="public", website=True)
-    def proposal_accepted(self, proposal_id, access_token=None, message=False, **kw):
-        access_token = access_token or request.httprequest.args.get('access_token')
-        try:
-            proposal_sudo = self._document_check_access('proposal.proposal', proposal_id, access_token=access_token)
-        except (AccessError, MissingError):
-            return {'error': _('Invalid order.')}
+            return {'error': _('Invalid proposal.')}
 
         if not proposal_sudo.has_to_be_confirmed():
             return {'error': _('The proposal is already been confirmed.')}
@@ -166,7 +142,7 @@ class CustomerPortal(CustomerPortal):
         try:
             proposal_sudo = self._document_check_access('proposal.proposal', proposal_id, access_token=access_token)
         except (AccessError, MissingError):
-            return {'error': _('Invalid order.')}
+            return {'error': _('Invalid Proposal.')}
 
         if not proposal_sudo.has_to_be_confirmed():
             return {'error': _('The proposal is already been confirmed.')}

@@ -11,7 +11,7 @@ class Proposal(models.Model):
     _description = "Manage a proposal of a list of product to a customer"
 
     @api.depends('proposal_line.price_proposed', 'proposal_line.price_accepted')
-    def _amount_all(self):
+    def _compute_amount_total(self):
         for proposal in self:
             amount_total_proposed = amount_total_accepted = 0.0
             for line in proposal.proposal_line:
@@ -50,9 +50,9 @@ class Proposal(models.Model):
         }, copy=True, auto_join=True)
 
     amount_total_proposed = fields.Float(
-        'Proposed Total Amount', store=True, readonly=True, compute='_amount_all', tracking=5)
+        'Proposed Total Amount', store=True, readonly=True, compute='_compute_amount_total', tracking=5)
     amount_total_accepted = fields.Float(
-        'Accepted Total Amount', store=True, readonly=True, compute='_amount_all', tracking=5)
+        'Accepted Total Amount', store=True, readonly=True, compute='_compute_amount_total', tracking=5)
 
     def _compute_access_url(self):
         super(Proposal, self)._compute_access_url()
@@ -203,21 +203,22 @@ class ProposalLines(models.Model):
         ),
     ]
 
-    @api.onchange('product_id', 'qty_proposed')
-    def product_id_change(self):
+    @api.onchange('product_id', 'qty_proposed','qty_accepted')
+    def _onchange_product_id(self):
         if not self.product_id:
             return
         vals = {}
         if not self.product_uom or (self.product_id.uom_id.id != self.product_uom.id):
             vals.update({
                 'product_uom': self.product_id.uom_id,
-                'qty_proposed': self.qty_proposed or 1.0
+                'qty_proposed': self.qty_proposed or 1.0,
+                'qty_accepted': self.qty_accepted if self.qty_accepted else self.qty_proposed
             })
 
         product = self.product_id.with_context(
             lang=get_lang(self.env, self.proposal_id.partner_id.lang).code,
             partner=self.proposal_id.partner_id,
-            quantity=self.qty_proposed,
+            quantity=self.qty_accepted if self.qty_accepted else self.qty_proposed,
             date=self.proposal_id.date_proposal,
             pricelist=self.proposal_id.pricelist_id.id,
             uom=self.product_uom.id
@@ -225,7 +226,6 @@ class ProposalLines(models.Model):
         if product:
             vals.update({
                 'price_proposed': product.price,
-                'qty_accepted': self.qty_proposed,
                 'price_accepted': product.price,
                 'description': product.get_product_multiline_description_sale(),
             })

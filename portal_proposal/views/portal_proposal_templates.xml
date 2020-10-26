@@ -64,8 +64,8 @@
 	                    </div>
                     </div>
                     <!-- bottom actions -->
-	                <div t-if="proposal.has_to_be_confirmed()" class="row justify-content-center text-center d-print-none pt-1 pb-4">
-	                    <t t-if="proposal.state not in ['accept','cancel']">
+	                <div t-if="proposal.state not in ['accept','cancel']" class="row justify-content-center text-center d-print-none pt-1 pb-4">
+	                    <!-- <t t-if="proposal.state not in ['accept','cancel']"> -->
 	                        <div class="col-sm-auto mt8">
 	                            <a role="button" class="btn btn-primary" t-att-href="proposal.get_portal_url(suffix='/accept')">
                                     <i class="fa fa-check"/>
@@ -77,11 +77,11 @@
                                     <i class="fa fa-times"/> Refuse
                                 </a>
 	                        </div>
-	                    </t>
+	                    <!-- </t> -->
 	                </div>
 	                
 	                <!-- chatter -->
-	                <div id="sale_order_communication" class="mt-4">
+	                <div id="proposal_communication" class="mt-4">
 	                    <h2>History</h2>
 	                    <t t-call="portal.message_thread">
 	                        <t t-set="object" t-value="proposal"/>
@@ -122,7 +122,7 @@
                             <th t-attf-class="text-right {{ 'd-none d-sm-table-cell' if report_type == 'html' else '' }}">Accepted Price</th>
                         </tr>
                     </thead>
-                    <tbody class="sale_tbody">
+                    <tbody class="proposal_tbody">
                     	<t t-foreach="proposal.proposal_line" t-as="line">
                     		<tr>
                                 <td class='td-img'>
@@ -135,8 +135,9 @@
                                     <small class='d-none d-md-block'><p t-field="line.product_id.description_sale" class="text-muted"/></small>
                                 </td>
                     			<td class="text-right">
-                    				<div id="quote_qty">
+                    				<div id="qty_proposed">
 	                    				<span t-field="line.qty_proposed"/>
+                                        <span t-field="line.product_uom" />
 	                    			</div>
                     			</td>
                     			<td class="text-right">
@@ -161,11 +162,12 @@
                                                     </a>
                                                 </span>
                                             </div>
-                                        </div>
+                                        </div> 
                                     </t>
                                     <t t-else="">
-                                        <div id="quote_qty">
+                                        <div id="qty_accepted">
                                             <span t-field="line.qty_accepted"/>
+                                            <span t-field="line.product_uom" />
                                         </div>
                                     </t>
                     			</td>

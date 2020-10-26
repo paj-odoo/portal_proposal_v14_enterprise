@@ -1,7 +1,7 @@
 odoo.define('portal_proposal.proposal_line_update', function (require) {
 'use strict';
 
-var publicWidget = require('web.public.widget');
+    var publicWidget = require('web.public.widget');
 
     publicWidget.registry.ProposalUpdateLineButton = publicWidget.Widget.extend({
         selector: '.o_portal_proposal_sidebar',
@@ -70,7 +70,7 @@ var publicWidget = require('web.public.widget');
             let lineAccptedQuantity = data.proposal_line_qty_accepted,
                 linePriceAccepted = data.proposal_line_price_accepted,
                 $lineAccptedQuantity = $proposeLine.find('.js_quantity'),
-                $linePriceAccepted = $proposeLine.find('.oe_order_line_price_subtotal .oe_currency_value');
+                $linePriceAccepted = $proposeLine.find('.js_price');
 
             $proposeLine.find('.js_quantity').val(data.proposal_line_qty_accepted);
             if ($lineAccptedQuantity.length && lineAccptedQuantity !== undefined) {
